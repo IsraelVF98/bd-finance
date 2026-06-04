@@ -1,0 +1,7 @@
+# .streamlit/config.toml
+[theme]
+primaryColor = "#00E676"          # Cor dos botões ativos, abas e destaques (Verde Neon)
+backgroundColor = "#0F111A"       # Fundo principal do app (Super Dark/Deep Blue)
+secondaryBackgroundColor = "#1E2235" # Fundo do menu lateral e dos cards (Grafite Azulado)
+textColor = "#FFFFFF"             # Cor do texto principal
+font = "sans serif"               # Fonte limpa e moderna
