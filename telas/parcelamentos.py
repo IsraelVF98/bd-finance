@@ -64,7 +64,7 @@ def exibir(lista_categorias_ativas, lista_pessoas_ativas):
 
 # --- NOVO BLOCO: EXCLUIR PARCELAMENTO INTEIRO ---
     if not df_ativos.empty:
-        st.markdown("### 🗑️ Cancelar / Excluir Contrato de Parcelamento")
+        st.markdown("Cancelar / Excluir Contrato de Parcelamento")
         st.caption("Aviso: Isso apagará TODAS as parcelas vinculadas a este contrato de uma vez só.")
         
         col_del1, col_del2 = st.columns([2, 1])

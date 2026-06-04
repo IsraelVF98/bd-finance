@@ -15,16 +15,42 @@ def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False):
     desp_total = df_despesas_filtrado['Valor'].sum() if not df_despesas_filtrado.empty else 0.0
     saldo_total = rec_total - desp_total
     
-    # Cards de KPI superiores
+# Cards de KPI superiores (Opção 2: Valor no Delta)
+    texto_delta = f"R$ {saldo_total:,.2f}" if saldo_total >= 0 else f"-R$ {abs(saldo_total):,.2f}"
+
+    # Cards de KPI superiores (Visual Premium com Fontes Coloridas)
     col1, col2, col3 = st.columns(3)
-    col1.metric("Receitas Totais", f"R$ {rec_total:,.2f}", delta_color="normal")
-    col2.metric("Despesas Totais", f"R$ {desp_total:,.2f}", delta_color="inverse")
-    col3.metric("Saldo Líquido", f"R$ {saldo_total:,.2f}", delta="Positivo" if saldo_total >= 0 else "- Negativo")
-    st.markdown("---")
     
+    with col1:
+        st.markdown(f"""
+            <div style="padding: 5px 0px;">
+                <p style="margin:0; font-size:14px; color:#a3a8b4; font-weight:500;">Receitas Totais</p>
+                <p style="margin:0; font-size:30px; font-weight:700; color:#2ecc71;">R$ {rec_total:,.2f}</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col2:
+        st.markdown(f"""
+            <div style="padding: 5px 0px;">
+                <p style="margin:0; font-size:14px; color:#a3a8b4; font-weight:500;">Despesas Totais</p>
+                <p style="margin:0; font-size:30px; font-weight:700; color:#e74c3c;">R$ {desp_total:,.2f}</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col3:
+        # Define a cor dinâmica do texto do Saldo
+        cor_saldo = "#2ecc71" if saldo_total >= 0 else "#e74c3c"
+        st.markdown(f"""
+            <div style="padding: 5px 0px;">
+                <p style="margin:0; font-size:14px; color:#a3a8b4; font-weight:500;">Saldo Líquido</p>
+                <p style="margin:0; font-size:30px; font-weight:700; color:{cor_saldo};">R$ {saldo_total:,.2f}</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    st.markdown("---")
     # Gráfico de Linha de Evolução Mensal (Visão Anual)
     if visao_anual:
-        st.subheader("📈 Evolução Financeira Mensal")
+        st.subheader("Evolução Financeira Mensal")
         
         if not df_despesas_filtrado.empty:
             df_desp_mes = df_despesas_filtrado.groupby('Mes_Ano')['Valor'].sum().reset_index().rename(columns={'Valor': 'Despesas'})
@@ -54,7 +80,7 @@ def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False):
         st.markdown("---")
         
     # Gráfico de Gasto por Categoria
-    st.subheader("🛍️ Gastos por Categoria")
+    st.subheader("Gastos por Categoria")
     if not df_despesas_filtrado.empty:
         cat_chart_df = df_despesas_filtrado.groupby('Categoria')['Valor'].sum().reset_index().sort_values(by='Valor', ascending=False)
         
@@ -70,7 +96,7 @@ def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False):
 
     # --- NOVO GRÁFICO: AVULSO VS PARCELADO ---
     st.markdown("---")
-    st.subheader("📊 Origem das Despesas: Avulsas vs. Parcelamentos")
+    st.subheader("Origem das Despesas: Avulsas vs. Parcelamentos")
     if not df_despesas_filtrado.empty:
         df_analise = df_despesas_filtrado.copy()
         
@@ -116,7 +142,7 @@ def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False):
         st.info("Nenhuma despesa registrada para analisar a composição.")
 
     st.markdown("---")
-    st.subheader("📄 Extrato Detalhado de Despesas do Período")
+    st.subheader("Extrato Detalhado de Despesas do Período")
     if not df_despesas_filtrado.empty:
         df_exibicao = df_despesas_filtrado.rename(columns={
             'Mes_Ano': 'Mês/Ano',
