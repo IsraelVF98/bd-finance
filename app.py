@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import extra_streamlit_components as stx
 
-cookie_manager = stx.CookieManager()
-# Importações de base de dados e utilitários (Incluindo as novas funções de login/registro)
+# Importações de base de dados e utilitários
 from database import (
     criar_tabelas, obter_categorias, obter_todas_despesas, 
     obter_receitas_raw, obter_pessoas, verificar_login, criar_usuario
@@ -13,26 +12,27 @@ from database import (
 # Importações dos módulos da pasta telas
 from telas import dashboard, lancamentos, parcelamentos, categorias, pessoas
 
-# Configuração do Layout Premium
+# =========================================================
+# ⚙️ CONFIGURAÇÃO INICIAL (OBRIGATÓRIO SER O PRIMEIRO COMANDO)
+# =========================================================
 st.set_page_config(page_title="B&D Finance", layout="wide", initial_sidebar_state="expanded")
 
+# Redução dos espaços em branco no topo
 st.markdown("""
     <style>
-        /* Reduz o espaço em branco no topo da página principal */
         .block-container {
             padding-top: 1rem !important;
             padding-bottom: 0rem !important;
         }
-        /* Oculta o menu padrão do Streamlit e o header (opcional, deixa mais limpo) */
         header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# Inicialização das variáveis de estado (Session State)
+# =========================================================
+# 💾 ESTADOS DE SESSÃO E BANCO DE DADOS
+# =========================================================
 if "mes_selecionado" not in st.session_state:
     st.session_state.mes_selecionado = "Ano Inteiro"
-
-# Estados para controlar o Login
 if "logado" not in st.session_state:
     st.session_state.logado = False
 if "usuario_id" not in st.session_state:
@@ -40,35 +40,46 @@ if "usuario_id" not in st.session_state:
 if "username" not in st.session_state:
     st.session_state.username = ""
 
-# Inicialização automática das tabelas/migrações no PostgreSQL
+# Garante que as tabelas existem no banco
 criar_tabelas()
+
+# Inicializa o gerenciador de cookies
+cookie_manager = stx.CookieManager()
+
+# =========================================================
+# 🔄 LÓGICA DE LOGIN AUTOMÁTICO (MANTER CONECTADO)
+# =========================================================
+if not st.session_state.logado:
+    cookie_id = cookie_manager.get("bd_user_id")
+    cookie_user = cookie_manager.get("bd_username")
+    
+    # Se encontrou os cookies salvos no navegador:
+    if cookie_id and cookie_user:
+        st.session_state.logado = True
+        # Usamos int() assumindo que seu ID no banco é um número
+        st.session_state.usuario_id = int(cookie_id) 
+        st.session_state.username = cookie_user
+        
+        st.rerun() # Pula a tela de login
 
 
 # =========================================================
 # 🔐 SESSÃO DE AUTENTICAÇÃO (TELA DE LOGIN / REGISTRO)
 # =========================================================
-
 if not st.session_state.logado:
     
-    # Adicionamos um pequeno respiro no topo para não ficar colado demais
     st.write("") 
     
-    # Criamos 2 colunas proporcionais (50% esquerda, 50% direita) com um espaço grande entre elas
-    # Dica: se o seu Streamlit estiver atualizado, você pode adicionar: vertical_alignment="center"
+    # Layout em 2 colunas
     col_esq, col_dir = st.columns([0.6, 1.4], gap="large")
     
-    # --- COLUNA DA ESQUERDA (IMAGEM) ---
     with col_esq:
-        # Colocamos um pequeno espaçamento para a imagem descer e ficar alinhada com o formulário
         st.markdown("<br><br>", unsafe_allow_html=True)
-        # O use_container_width=True garante que ela fique grande, preenchendo o espaço da coluna
         st.image("assets/logo.png", use_container_width=True)
         
-    # --- COLUNA DA DIREITA (FORMULÁRIOS) ---
     with col_dir:
         st.markdown("<h2 style='text-align: left;'>Bem-vindo ao B&D Finance</h2>", unsafe_allow_html=True)
         
-        # Cria abas internas para alternar entre Fazer Login e Criar Conta
         aba_auth = st.tabs(["🔒 Entrar no Sistema", "📝 Criar Nova Conta"])
         
         # --- ABA 1: LOGIN ---
@@ -87,12 +98,12 @@ if not st.session_state.logado:
                     st.session_state.username = user_input.capitalize()
 
                     if manter_logado:
-                        cookie_manager.set("bd_user_id", str(user_id))
-                        cookie_manager.set("bd_username", user_input.capitalize())
+                        validade = datetime.now() + timedelta(days=30)
+                        cookie_manager.set("bd_user_id", str(user_id), expires_at=validade)
+                        cookie_manager.set("bd_username", user_input.capitalize(), expires_at=validade)
 
                     st.success(f"Bem-vindo de volta, {st.session_state.username}!")
                     st.rerun()
-
                 else:
                     st.error("Usuário ou senha incorretos.")
 
@@ -115,7 +126,7 @@ if not st.session_state.logado:
                     else:
                         st.error(msg)
                         
-    # Interrompe a execução aqui para não mostrar o sistema por trás sem login
+    # Para a execução aqui se não estiver logado
     st.stop()
 
 
@@ -151,7 +162,6 @@ tela = st.sidebar.radio("Ir para:", [
     "Gerenciar Pessoas"
 ])
 
-# Título dinâmico baseado na tela atual
 st.title(f"B&D Finance — {tela}")
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -159,13 +169,11 @@ st.markdown("<br>", unsafe_allow_html=True)
 # =========================================================
 # 📊 CARGA E FILTRAGEM DE DADOS (PASSANDO O USER ID ATIVO)
 # =========================================================
-# Nota: Adicionado 'user_id_ativo' para isolar os dados de cada conta
 lista_categorias_ativas = obter_categorias(user_id_ativo)
 lista_pessoas_ativas = obter_pessoas(user_id_ativo)
 df_despesas_all = obter_todas_despesas(user_id_ativo)
 df_receitas_all = obter_receitas_raw(user_id_ativo)
 
-# Trata as colunas temporárias de filtragem temporal em memória
 if not df_despesas_all.empty:
     df_despesas_all['Ano'] = df_despesas_all['mes_ano'].str.split('/').str[1]
     df_despesas_all['Mes_Num'] = df_despesas_all['mes_ano'].str.split('/').str[0]
@@ -180,7 +188,6 @@ else:
     df_receitas_all['Ano'] = pd.Series(dtype='str')
     df_receitas_all['Mes_Num'] = pd.Series(dtype='str')
 
-# Descobre anos disponíveis para os Seletores
 anos_disponiveis = sorted(list(set(df_despesas_all['Ano'].dropna().unique()).union(set(df_receitas_all['Ano'].dropna().unique()))), reverse=True)
 if not anos_disponiveis:
     anos_disponiveis = [datetime.now().strftime("%Y")]
@@ -188,7 +195,6 @@ if not anos_disponiveis:
 st.sidebar.divider()
 st.sidebar.header("Filtros Globais")
 
-# 1º Filtro: Seleção do Ano
 ano_selecionado = st.sidebar.selectbox("Selecione o Ano:", anos_disponiveis)
 
 df_desp_ano = df_despesas_all[df_despesas_all['Ano'] == ano_selecionado]
@@ -202,7 +208,6 @@ meses_traducao = {
 meses_numeros = sorted(list(set(df_desp_ano['Mes_Num'].dropna().unique()).union(set(df_rec_ano['Mes_Num'].dropna().unique()))))
 
 
-# 2º Filtro: CALENDÁRIO EM GRADE
 st.sidebar.write("Selecione o Mês:")
 
 is_ano_inteiro = (st.session_state.mes_selecionado == "Ano Inteiro")
@@ -239,11 +244,9 @@ with st.sidebar:
 
 mes_selecionado_nome = st.session_state.mes_selecionado
 
-# 3º Filtro: Filtro de Pessoa
 opcoes_filtro_pessoas = ["Todos"] + lista_pessoas_ativas
 pessoa_selecionada = st.sidebar.selectbox("Filtrar por Pessoa:", opcoes_filtro_pessoas)
 
-# Executa lógica de filtragem final antes de mandar para o Dashboard
 visao_anual = (mes_selecionado_nome == "Ano Inteiro")
 
 if visao_anual:
@@ -261,22 +264,20 @@ if pessoa_selecionada != "Todos":
 st.sidebar.markdown(f"👤 *Logado como:* **{st.session_state.username}**")
 
 if st.sidebar.button("🚪 Sair / Logout", type="secondary", use_container_width=True):
-
     cookie_manager.delete("bd_user_id")
     cookie_manager.delete("bd_username")
 
     st.session_state.logado = False
     st.session_state.usuario_id = None
     st.session_state.username = ""
-
     st.rerun()
+
 # =========================================================
 # 🧭 DIRECIONAMENTO SEGURO DAS TELAS
 # =========================================================
 if tela == "Dashboard":
     dashboard.exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual)
 elif tela == "Receitas/Despesas":
-    # Passamos o user_id_ativo para que as sub-telas saibam quem está operando!
     lancamentos.exibir(lista_categorias_ativas, lista_pessoas_ativas, user_id_ativo)
 elif tela == "Parcelamentos":
     parcelamentos.exibir(lista_categorias_ativas, lista_pessoas_ativas, user_id_ativo)
