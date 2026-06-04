@@ -69,6 +69,53 @@ def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False):
     else:
         st.info("Nenhuma despesa registrada para este filtro.")
 
+    # --- NOVO GRÁFICO: AVULSO VS PARCELADO ---
+    st.markdown("---")
+    st.subheader("📊 Origem das Despesas: Avulsas vs. Parcelamentos")
+    if not df_despesas_filtrado.empty:
+        df_analise = df_despesas_filtrado.copy()
+        
+        # Identifica se a despesa veio de um parcelamento ou se é avulsa
+        if 'id_parcelamento' in df_analise.columns:
+            df_analise['Tipo Despesa'] = df_analise['id_parcelamento'].apply(
+                lambda x: 'Parcelamento' if pd.notna(x) and str(x).strip() != '' and str(x) != 'None' else 'Despesa Avulsa'
+            )
+        else:
+            df_analise['Tipo Despesa'] = 'Despesa Avulsa'
+            
+        # Agrupa os valores utilizando a coluna 'Valor' (já padronizada)
+        df_resumo_tipo = df_analise.groupby('Tipo Despesa')['Valor'].sum().reset_index()
+        
+        # Monta o gráfico de rosca (donut chart)
+        fig_proporcao = px.pie(
+            df_resumo_tipo, 
+            values='Valor', 
+            names='Tipo Despesa', 
+            hole=0.5,
+            color='Tipo Despesa',
+            color_discrete_map={
+                'Despesa Avulsa': '#2ecc71',   # Mesmo verde amigável das receitas
+                'Parcelamento': '#e67e22'      # Um laranja/coral elegante para parcelas
+            }
+        )
+        
+        fig_proporcao.update_traces(
+            textinfo='percent+label', 
+            hovertemplate="<b>%{label}</b><br>Total: R$ %{value:,.2f}<br>Proporção: %{percent}<extra></extra>"
+        )
+        
+        fig_proporcao.update_layout(
+            height=380,
+            showlegend=True,
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(t=20, b=20, l=20, r=20),
+            legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5)
+        )
+        st.plotly_chart(fig_proporcao, use_container_width=True)
+    else:
+        st.info("Nenhuma despesa registrada para analisar a composição.")
+
     st.markdown("---")
     st.subheader("📄 Extrato Detalhado de Despesas do Período")
     if not df_despesas_filtrado.empty:
