@@ -19,8 +19,7 @@ def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False):
     col1, col2, col3 = st.columns(3)
     col1.metric("Receitas Totais", f"R$ {rec_total:,.2f}", delta_color="normal")
     col2.metric("Despesas Totais", f"R$ {desp_total:,.2f}", delta_color="inverse")
-    col3.metric("Saldo Líquido", f"R$ {saldo_total:,.2f}", delta="Positivo" if saldo_total >= 0 else "Negativo")
-    
+    col3.metric("Saldo Líquido", f"R$ {saldo_total:,.2f}", delta="Positivo" if saldo_total >= 0 else "- Negativo")
     st.markdown("---")
     
     # Gráfico de Linha de Evolução Mensal (Visão Anual)
