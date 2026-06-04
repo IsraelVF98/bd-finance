@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import extra_streamlit_components as stx
+import time
 
 # Importações de base de dados e utilitários
 from database import (
@@ -39,28 +40,40 @@ if "usuario_id" not in st.session_state:
     st.session_state.usuario_id = None
 if "username" not in st.session_state:
     st.session_state.username = ""
+if "clicou_sair" not in st.session_state:
+    st.session_state.clicou_sair = False
 
 # Garante que as tabelas existem no banco
 criar_tabelas()
 
-# Inicializa o gerenciador de cookies
-cookie_manager = stx.CookieManager()
+
+# =========================================================
+# 🍪 INICIALIZAÇÃO SEGURA DO GERENCIADOR DE COOKIES
+# =========================================================
+if "cookie_manager" not in st.session_state:
+    st.session_state.cookie_manager = stx.CookieManager(key="gerenciador_cookies_bd")
+
+cookie_manager = st.session_state.cookie_manager
+
 
 # =========================================================
 # 🔄 LÓGICA DE LOGIN AUTOMÁTICO (MANTER CONECTADO)
 # =========================================================
-if not st.session_state.logado:
+if not st.session_state.logado and not st.session_state.clicou_sair:
+    # Pequeno respiro para o componente conseguir ler os dados do navegador no primeiro frame
+    if not cookie_manager.get_all():
+        time.sleep(0.1)
+
     cookie_id = cookie_manager.get("bd_user_id")
     cookie_user = cookie_manager.get("bd_username")
     
     # Se encontrou os cookies salvos no navegador:
     if cookie_id and cookie_user:
         st.session_state.logado = True
-        # Usamos int() assumindo que seu ID no banco é um número
         st.session_state.usuario_id = int(cookie_id) 
         st.session_state.username = cookie_user
         
-        st.rerun() # Pula a tela de login
+        st.rerun() # Pula a tela de login para o painel principal
 
 
 # =========================================================
@@ -96,16 +109,21 @@ if not st.session_state.logado:
                     st.session_state.logado = True
                     st.session_state.usuario_id = user_id
                     st.session_state.username = user_input.capitalize()
+                    
+                    # Reseta a flag de logout para permitir futuros logins automáticos normais
+                    st.session_state.clicou_sair = False
 
                     if manter_logado:
                         validade = datetime.now() + timedelta(days=30)
-                        cookie_manager.set("bd_user_id", str(user_id), expires_at=validade)
-                        cookie_manager.set("bd_username", user_input.capitalize(), expires_at=validade)
+                        cookie_manager.set("bd_user_id", str(user_id), expires_at=validade, key="set_cookie_id")
+                        cookie_manager.set("bd_username", user_input.capitalize(), expires_at=validade, key="set_cookie_user")
 
                     st.success(f"Bem-vindo de volta, {st.session_state.username}!")
+                    
+                    if manter_logado:
+                        time.sleep(0.5)
+                        
                     st.rerun()
-                else:
-                    st.error("Usuário ou senha incorretos.")
 
         # --- ABA 2: REGISTRO ---
         with aba_auth[1]:
@@ -263,14 +281,32 @@ if pessoa_selecionada != "Todos":
 
 st.sidebar.markdown(f"👤 *Logado como:* **{st.session_state.username}**")
 
+# =========================================================
+# 🚪 BOTÃO DE SAIR / LOGOUT 
+# =========================================================
 if st.sidebar.button("🚪 Sair / Logout", type="secondary", use_container_width=True):
-    cookie_manager.delete("bd_user_id")
-    cookie_manager.delete("bd_username")
+    # 1. Ativa a trava para impedir o login automático imediato com cookies fantasmas
+    st.session_state.clicou_sair = True
 
+    # 2. Pegamos a lista de cookies atuais para validação
+    cookies_atuais = cookie_manager.get_all()
+
+    # 3. Só deleta do navegador se o cookie realmente existir
+    if "bd_user_id" in cookies_atuais:
+        cookie_manager.delete("bd_user_id", key="del_cookie_id")
+    
+    if "bd_username" in cookies_atuais:
+        cookie_manager.delete("bd_username", key="del_cookie_user")
+
+    # 4. Limpa o estado da sessão normalmente
     st.session_state.logado = False
     st.session_state.usuario_id = None
     st.session_state.username = ""
+    
+    # 5. Dá o tempo para o navegador processar as remoções e recarrega
+    time.sleep(0.4) 
     st.rerun()
+
 
 # =========================================================
 # 🧭 DIRECIONAMENTO SEGURO DAS TELAS
