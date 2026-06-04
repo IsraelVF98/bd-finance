@@ -102,7 +102,7 @@ if not st.session_state.logado:
 
             manter_logado = st.checkbox("Manter conectado")
 
-            if st.button("Aceder ao Painel", use_container_width=True, type="primary"):
+            if st.button("Login", use_container_width=True, type="primary"):
                 sucesso, user_id = verificar_login(user_input, pass_input)
 
                 if sucesso:
@@ -285,26 +285,25 @@ st.sidebar.markdown(f"👤 *Logado como:* **{st.session_state.username}**")
 # 🚪 BOTÃO DE SAIR / LOGOUT 
 # =========================================================
 if st.sidebar.button("🚪 Sair / Logout", type="secondary", use_container_width=True):
-    # 1. Ativa a trava para impedir o login automático imediato com cookies fantasmas
+    # 1. Ativa a trava temporária da sessão
     st.session_state.clicou_sair = True
 
-    # 2. Pegamos a lista de cookies atuais para validação
-    cookies_atuais = cookie_manager.get_all()
-
-    # 3. Só deleta do navegador se o cookie realmente existir
-    if "bd_user_id" in cookies_atuais:
-        cookie_manager.delete("bd_user_id", key="del_cookie_id")
+    # 2. Força o esvaziamento imediato dos valores no navegador (limpa o conteúdo)
+    cookie_manager.set("bd_user_id", "", key="clear_cookie_id")
+    cookie_manager.set("bd_username", "", key="clear_cookie_user")
     
-    if "bd_username" in cookies_atuais:
-        cookie_manager.delete("bd_username", key="del_cookie_user")
+    # 3. Manda o navegador deletar os arquivos de cookie de vez
+    cookie_manager.delete("bd_user_id", key="del_cookie_id")
+    cookie_manager.delete("bd_username", key="del_cookie_user")
 
-    # 4. Limpa o estado da sessão normalmente
+    # 4. Limpa o estado da sessão do Streamlit
     st.session_state.logado = False
     st.session_state.usuario_id = None
     st.session_state.username = ""
     
-    # 5. Dá o tempo para o navegador processar as remoções e recarrega
-    time.sleep(0.4) 
+    # 5. Damos um tempo ligeiramente maior (0.7s) para garantir que o navegador
+    # limpe o cache do disco antes do próximo reload.
+    time.sleep(0.7) 
     st.rerun()
 
 
