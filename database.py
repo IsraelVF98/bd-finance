@@ -184,6 +184,14 @@ def obter_parcelamentos_ativos():
     """
     return pd.read_sql(query, engine)
 
+def remover_parcelamento(id_parcelamento):
+    """Remove todas as despesas vinculadas a um contrato de parcelamento específico."""
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM despesas WHERE id_parcelamento = :id_parc"),
+            {"id_parc": id_parcelamento}
+        )
+
 # --- SECÇÃO: GERENCIAMENTO DE PESSOAS ---
 def obter_pessoas():
     """Retorna uma lista com o nome de todas as pessoas cadastradas."""

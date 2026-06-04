@@ -1,7 +1,7 @@
 # telas/parcelamentos.py
 import streamlit as st
 from datetime import datetime
-from database import salvar_parcelamento, obter_parcelamentos_ativos
+from database import salvar_parcelamento, obter_parcelamentos_ativos, remover_parcelamento
 
 def exibir(lista_categorias_ativas, lista_pessoas_ativas):
     st.subheader("Inserir Compra Parcelada")
@@ -61,3 +61,22 @@ def exibir(lista_categorias_ativas, lista_pessoas_ativas):
     st.subheader("Contratos de Parcelamento Ativos")
     df_ativos = obter_parcelamentos_ativos()
     st.dataframe(df_ativos, use_container_width=True, hide_index=True)
+
+# --- NOVO BLOCO: EXCLUIR PARCELAMENTO INTEIRO ---
+    if not df_ativos.empty:
+        st.markdown("### 🗑️ Cancelar / Excluir Contrato de Parcelamento")
+        st.caption("Aviso: Isso apagará TODAS as parcelas vinculadas a este contrato de uma vez só.")
+        
+        col_del1, col_del2 = st.columns([2, 1])
+        
+        # Cria uma lista com os IDs dos contratos ativos para o usuário escolher
+        contrato_selecionado = col_del1.selectbox(
+            "Selecione o ID do Contrato para remover:", 
+            df_ativos["ID Contrato"].tolist()
+        )
+        
+        # Botão de confirmação
+        if col_del2.button("Apagar Contrato Inteiro", type="primary", use_container_width=True):
+            remover_parcelamento(contrato_selecionado)
+            st.success(f"Contrato {contrato_selecionado} e todas as suas parcelas foram removidos!")
+            st.rerun()
