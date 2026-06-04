@@ -27,7 +27,6 @@ def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False):
     if visao_anual:
         st.subheader("📈 Evolução Financeira Mensal")
         
-        # Cria caminhos vazios caso não haja dados ainda
         if not df_despesas_filtrado.empty:
             df_desp_mes = df_despesas_filtrado.groupby('Mes_Ano')['Valor'].sum().reset_index().rename(columns={'Valor': 'Despesas'})
         else:
@@ -55,7 +54,7 @@ def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False):
             st.info("Dados insuficientes para gerar a linha histórica de tendência anual.")
         st.markdown("---")
         
-    # Gráfico de Gasto por Categoria Ocupando a tela cheia (Vertical)
+    # Gráfico de Gasto por Categoria
     st.subheader("🛍️ Gastos por Categoria")
     if not df_despesas_filtrado.empty:
         cat_chart_df = df_despesas_filtrado.groupby('Categoria')['Valor'].sum().reset_index().sort_values(by='Valor', ascending=False)
@@ -73,9 +72,15 @@ def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False):
     st.markdown("---")
     st.subheader("📄 Extrato Detalhado de Despesas do Período")
     if not df_despesas_filtrado.empty:
-        colunas_exibicao = ['Mes_Ano', 'Categoria', 'Descricao', 'Valor', 'Quem_Pagou'] if visao_anual else ['Categoria', 'Descricao', 'Valor', 'Quem_Pagou']
-        # Filtra apenas as colunas que realmente existem para evitar novos KeyErrors
-        colunas_validas = [c for c in colunas_exibicao if c in df_despesas_filtrado.columns]
-        st.dataframe(df_despesas_filtrado[colunas_validas], use_container_width=True, hide_index=True)
+        df_exibicao = df_despesas_filtrado.rename(columns={
+            'Mes_Ano': 'Mês/Ano',
+            'Categoria': 'Categoria',
+            'Descricao': 'Descrição',
+            'Valor': 'Valor (R$)',
+            'Quem_Pagou': 'Quem Pagou'
+        })
+        colunas_exibicao = ['Mês/Ano', 'Categoria', 'Descrição', 'Valor (R$)', 'Quem Pagou'] if visao_anual else ['Categoria', 'Descrição', 'Valor (R$)', 'Quem Pagou']
+        colunas_validas = [c for c in colunas_exibicao if c in df_exibicao.columns]
+        st.dataframe(df_exibicao[colunas_validas], use_container_width=True, hide_index=True)
     else:
         st.info("Nenhum dado de despesa para exibir no extrato.")

@@ -33,16 +33,24 @@ def exibir(lista_categorias_ativas, lista_pessoas_ativas):
         ano_p_num = col_a.selectbox("Ano da 1ª Parcela", anos_opcoes, index=anos_opcoes.index(ano_atual))
         
         num_p = col_p2.number_input("Número de Parcelas", min_value=2, max_value=48, value=12, step=1)
-        # Substitua o antigo number_input por este text_input
         total_p_texto = col_p2.text_input("Valor Total da Compra (R$)", value="0.00", placeholder="Ex: 00.00")
         
         sub_p = st.form_submit_button("Inserir Parcelamento", use_container_width=True)
         if sub_p:
-            if quem_p:  # Garante que há alguém selecionado antes de tentar salvar
-                # 🔄 Junta e formata os seletores para o padrão string "MM/AAAA" esperado pela lógica de parcelas
+            if quem_p:
+                # 🔄 Junta e formata os seletores para o padrão string "MM/AAAA"
                 mes_codigo = meses_mapa[mes_p_nome]
                 mes_p_formatado = f"{mes_codigo}/{ano_p_num}"
-                
+
+                try:
+                    total_p = float(total_p_texto.replace(",", "."))
+                except ValueError:
+                    st.error("Valor inválido. Use números como 1500.00 ou 1500,00")
+                    st.stop()
+                if total_p <= 0:
+                    st.error("O valor total deve ser maior que zero.")
+                    st.stop()
+
                 salvar_parcelamento(desc_p, cat_p, quem_p, mes_p_formatado, num_p, total_p)
                 st.success(f"Parcelamento cadastrado com sucesso iniciando em {mes_p_nome}/{ano_p_num}!")
                 st.rerun()

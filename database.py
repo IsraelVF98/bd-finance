@@ -1,212 +1,215 @@
 # database.py
-import sqlite3
+import streamlit as st
 import pandas as pd
+from sqlalchemy import create_engine, text
 
-def conectar():
-    return sqlite3.connect("financeiro.db")
+# Conexão centralizada usando o Streamlit Secrets
+def get_engine():
+    conn_str = st.secrets["connections"]["postgresql"]["url"]
+    return create_engine(conn_str)
+
+engine = get_engine()
 
 def criar_tabelas():
-    conn = conectar()
-    cursor = conn.cursor()
-    
-    # Tabela de despesas
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS despesas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        id_parcelamento TEXT,
-        num_parcela TEXT,
-        categoria TEXT,
-        descricao TEXT,
-        valor REAL,
-        quem_pagou TEXT,
-        mes_ano TEXT
-    )""")
-    
-    # Tabela de receitas
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS receitas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fonte TEXT,
-        descricao TEXT,
-        valor REAL,
-        mes_ano TEXT
-    )""")
-    
-    # Tabela de categorias
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS categorias (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE
-    )""")
-    
-    # Tabela de Pessoas
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS pessoas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE
-    )""")
-    
-    conn.commit()
-    conn.close()
+    """Cria as tabelas na base de dados PostgreSQL (Neon) se não existirem."""
+    with engine.begin() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS despesas (
+                id SERIAL PRIMARY KEY,
+                id_parcelamento TEXT,
+                num_parcela TEXT,
+                categoria TEXT,
+                descricao TEXT,
+                valor REAL,
+                quem_pagou TEXT,
+                mes_ano TEXT
+            );
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS receitas (
+                id SERIAL PRIMARY KEY,
+                fonte TEXT,
+                descricao TEXT,
+                valor REAL,
+                mes_ano TEXT
+            );
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS categorias (
+                id SERIAL PRIMARY KEY,
+                nome TEXT UNIQUE
+            );
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS pessoas (
+                id SERIAL PRIMARY KEY,
+                nome TEXT UNIQUE
+            );
+        """))
 
 # --- FUNÇÕES DE CATEGORIAS ---
 def obter_categorias():
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("SELECT nome FROM categorias ORDER BY nome ASC")
-    dados = cursor.fetchall()
-    conn.close()
-    return [linha[0] for linha in dados]
+    """Retorna uma lista com o nome de todas as categorias ordenadas."""
+    df = pd.read_sql("SELECT nome FROM categorias ORDER BY nome ASC", engine)
+    if df.empty:
+        return []
+    return df["nome"].tolist()
 
 def adicionar_categoria(nome):
-    """Adiciona uma nova categoria ao banco de dados"""
+    """Adiciona uma nova categoria à base de dados."""
     if not nome.strip():
         return False
-    conn = conectar()
-    cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO categorias (nome) VALUES (?)", (nome.strip(),))
-        conn.commit()
-        sucesso = True
-    except sqlite3.IntegrityError:
-        sucesso = False  # Categoria já existe
-    conn.close()
-    return sucesso
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO categorias (nome) VALUES (:nome)"),
+                {"nome": nome.strip()}
+            )
+        return True
+    except Exception:
+        return False  # Retorna False se a categoria já existir (Erro de Integridade)
 
 def remover_categoria(nome):
-    """Remove uma categoria do banco de dados"""
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM categorias WHERE nome = ?", (nome,))
-    conn.commit()
-    conn.close()
+    """Remove uma categoria da base de dados."""
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM categorias WHERE nome = :nome"),
+            {"nome": nome}
+        )
 
 # --- FUNÇÕES DE LANÇAMENTOS E CONSULTAS ---
 def salvar_despesa(mes_ano, categoria, descricao, valor, quem_pagou):
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("""
-    INSERT INTO despesas (mes_ano, categoria, descricao, valor, quem_pagou)
-    VALUES (?, ?, ?, ?, ?)
-    """, (mes_ano, categoria, descricao, valor, quem_pagou))
-    conn.commit()
-    conn.close()
+    """Guarda uma nova despesa na base de dados."""
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO despesas (mes_ano, categoria, descricao, valor, quem_pagou)
+            VALUES (:mes_ano, :categoria, :descricao, :valor, :quem_pagou)
+        """), {
+            "mes_ano": mes_ano,
+            "categoria": categoria,
+            "descricao": descricao,
+            "valor": float(valor),
+            "quem_pagou": quem_pagou
+        })
 
 def salvar_receita(mes_ano, fonte, valor):
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("""
-    INSERT INTO receitas (mes_ano, fonte, valor)
-    VALUES (?, ?, ?)
-    """, (mes_ano, fonte, valor))
-    conn.commit()
-    conn.close()
+    """Guarda uma nova receita na base de dados."""
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO receitas (mes_ano, fonte, valor)
+            VALUES (:mes_ano, :fonte, :valor)
+        """), {
+            "mes_ano": mes_ano,
+            "fonte": fonte,
+            "valor": float(valor)
+        })
 
 def obter_todas_despesas():
-    conn = conectar()
-    df = pd.read_sql_query("SELECT * FROM despesas", conn)
-    conn.close()
-    return df
+    """Retorna todas as despesas em formato DataFrame."""
+    return pd.read_sql("SELECT * FROM despesas", engine)
 
 def obter_receitas_raw():
-    conn = conectar()
-    df = pd.read_sql_query("SELECT * FROM receitas", conn)
-    conn.close()
-    return df
+    """Retorna todas as receitas em formato DataFrame."""
+    return pd.read_sql("SELECT * FROM receitas", engine)
 
 def obter_ultimos_registros(tipo):
-    conn = conectar()
+    """Retorna os últimos 10 registos com base no tipo selecionado."""
     if tipo == "Despesas Avulsas":
-        df = pd.read_sql_query("SELECT id as ID, mes_ano as 'Mês/Ano', categoria as Categoria, descricao as 'Descrição', valor as 'Valor (R$)', quem_pagou as 'Quem Pagou' FROM despesas WHERE id_parcelamento IS NULL ORDER BY id DESC LIMIT 10", conn)
+        query = """
+            SELECT id as "ID", mes_ano as "Mês/Ano", categoria as "Categoria", 
+                   descricao as "Descrição", valor as "Valor (R$)", quem_pagou as "Quem Pagou" 
+            FROM despesas 
+            WHERE id_parcelamento IS NULL 
+            ORDER BY id DESC LIMIT 10
+        """
     else:
-        df = pd.read_sql_query("SELECT id as ID, mes_ano as 'Mês/Ano', fonte as 'Fonte/Membro', valor as 'Valor (R$)' FROM receitas ORDER BY id DESC LIMIT 10", conn)
-    conn.close()
-    return df
+        query = """
+            SELECT id as "ID", mes_ano as "Mês/Ano", fonte as "Fonte/Membro", 
+                   valor as "Valor (R$)" 
+            FROM receitas 
+            ORDER BY id DESC LIMIT 10
+        """
+    return pd.read_sql(query, engine)
 
 def remover_registro(tipo, id_registro):
-    conn = conectar()
-    cursor = conn.cursor()
-    if tipo == "Despesas Avulsas":
-        cursor.execute("DELETE FROM despesas WHERE id = ?", (id_registro,))
-    else:
-        cursor.execute("DELETE FROM receitas WHERE id = ?", (id_registro,))
-    conn.commit()
-    conn.close()
+    """Remove um registo específico (despesa ou receita) pelo ID."""
+    tabela = "despesas" if tipo == "Despesas Avulsas" else "receitas"
+    with engine.begin() as conn:
+        conn.execute(
+            text(f"DELETE FROM {tabela} WHERE id = :id"),
+            {"id": int(id_registro)}
+        )
 
 # --- FUNÇÕES DE PARCELAMENTOS ---
 def salvar_parcelamento(descricao, categoria, quem_pagou, mes_inicial, qtd_parcelas, valor_total):
+    """Gera e guarda as parcelas futuras na base de dados na nuvem."""
     from datetime import datetime
     from dateutil.relativedelta import relativedelta
     
-    conn = conectar()
-    cursor = conn.cursor()
-    
     id_parc = f"PARC_{int(datetime.now().timestamp())}"
-    valor_parcela = round(valor_total / qtd_parcelas, 2)
+    valor_parcela = round(float(valor_total) / int(qtd_parcelas), 2)
     data_atual = datetime.strptime(mes_inicial, "%m/%Y")
     
-    for i in range(1, qtd_parcelas + 1):
-        mes_parc = data_atual.strftime("%m/%Y")
-        desc_completa = f"{descricao} ({i}/{qtd_parcelas})"
-        
-        cursor.execute("""
-        INSERT INTO despesas (id_parcelamento, num_parcela, categoria, descricao, valor, quem_pagou, mes_ano)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (id_parc, f"{i}/{qtd_parcelas}", categoria, desc_completa, valor_parcela, quem_pagou, mes_parc))
-        
-        data_atual += relativedelta(months=1)
-        
-    conn.commit()
-    conn.close()
+    with engine.begin() as conn:
+        for i in range(1, int(qtd_parcelas) + 1):
+            mes_parc = data_atual.strftime("%m/%Y")
+            desc_completa = f"{descricao} ({i}/{qtd_parcelas})"
+            
+            conn.execute(text("""
+                INSERT INTO despesas (id_parcelamento, num_parcela, categoria, descricao, valor, quem_pagou, mes_ano)
+                VALUES (:id_parc, :num_parcela, :categoria, :desc_completa, :valor_parcela, :quem_pagou, :mes_parc)
+            """), {
+                "id_parc": id_parc,
+                "num_parcela": f"{i}/{qtd_parcelas}",
+                "categoria": categoria,
+                "desc_completa": desc_completa,
+                "valor_parcela": valor_parcela,
+                "quem_pagou": quem_pagou,
+                "mes_parc": mes_parc
+            })
+            
+            data_atual += relativedelta(months=1)
 
 def obter_parcelamentos_ativos():
-    conn = conectar()
+    """Retorna o resumo dos contratos de parcelamento ativos."""
     query = """
-    SELECT id_parcelamento as 'ID Contrato', 
-           categoria as Categoria, 
-           quem_pagou as 'Responsável', 
-           COUNT(*) as 'Parcelas Totais',
-           SUM(valor) as 'Valor Total'
-    FROM despesas 
-    WHERE id_parcelamento IS NOT NULL 
-    GROUP BY id_parcelamento
+        SELECT id_parcelamento as "ID Contrato", 
+               categoria as "Categoria", 
+               quem_pagou as "Responsável", 
+               COUNT(*) as "Parcelas Totais",
+               SUM(valor) as "Valor Total"
+        FROM despesas 
+        WHERE id_parcelamento IS NOT NULL 
+        GROUP BY id_parcelamento
     """
-    df = pd.read_sql_query(query, conn)
-    conn.close()
-    return df
+    return pd.read_sql(query, engine)
 
-
-# --- SEÇÃO: GERENCIAMENTO DE PESSOAS ---
-
+# --- SECÇÃO: GERENCIAMENTO DE PESSOAS ---
 def obter_pessoas():
-    """Retorna uma lista simples com o nome de todas as pessoas cadastradas"""
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS pessoas (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT UNIQUE)")
-    cursor.execute("SELECT nome FROM pessoas ORDER BY nome ASC")
-    dados = cursor.fetchall()
-    conn.close()
-    return [linha[0] for linha in dados]
+    """Retorna uma lista com o nome de todas as pessoas cadastradas."""
+    df = pd.read_sql("SELECT nome FROM pessoas ORDER BY nome ASC", engine)
+    if df.empty:
+        return []
+    return df["nome"].tolist()
 
 def adicionar_pessoa(nome):
-    """Adiciona uma nova pessoa ao banco de dados se não existir duplicada"""
+    """Adiciona uma nova pessoa à base de dados."""
     if not nome.strip():
         return False
-    conn = conectar()
-    cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO pessoas (nome) VALUES (?)", (nome.strip(),))
-        conn.commit()
-        sucesso = True
-    except sqlite3.IntegrityError:
-        sucesso = False  # Nome duplicado
-    conn.close()
-    return sucesso
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO pessoas (nome) VALUES (:nome)"),
+                {"nome": nome.strip()}
+            )
+        return True
+    except Exception:
+        return False  # Nome duplicado ou erro de integridade
 
 def remover_pessoa(nome):
-    """Remove o nome da pessoa da tabela de cadastros ativos"""
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM pessoas WHERE nome = ?", (nome,))
-    conn.commit()
-    conn.close()
+    """Remove o nome da pessoa da tabela de cadastros ativos."""
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM pessoas WHERE nome = :nome"),
+            {"nome": nome}
+        )

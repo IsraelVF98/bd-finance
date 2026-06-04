@@ -44,7 +44,16 @@ def exibir(lista_categories_ativas, lista_pessoas_ativas):
                     # 🔄 Junta e formata os seletores para o padrão do banco (ex: "06/2026")
                     mes_codigo = meses_mapa[mes_d_nome]
                     mes_d_formatado = f"{mes_codigo}/{ano_d_num}"
-                    
+
+                    try:
+                        val_d = float(val_d_texto.replace(",", "."))
+                    except ValueError:
+                        st.error("Valor inválido. Use números como 10.50 ou 10,50")
+                        st.stop()
+                    if val_d <= 0:
+                        st.error("O valor deve ser maior que zero.")
+                        st.stop()
+
                     salvar_despesa(mes_d_formatado, cat_d, desc_d, val_d, quem_d)
                     st.success(f"Despesa adicionada com sucesso para {mes_d_nome}/{ano_d_num}!")
                     st.rerun()

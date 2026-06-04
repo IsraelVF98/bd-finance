@@ -3,17 +3,16 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Importações de banco de dados e utilitários
+# Importações de base de dados e utilitários
 from database import criar_tabelas, obter_categorias, obter_todas_despesas, obter_receitas_raw, obter_pessoas
-import backup 
 
-# Importações dos módulos da pasta telas (Incluindo o novo modulo de pessoas)
+# Importações dos módulos da pasta telas (Incluindo o novo módulo de pessoas)
 from telas import dashboard, lancamentos, parcelamentos, categorias, pessoas
 
 # Configuração do Layout Premium
 st.set_page_config(page_title="B&D Finance", layout="wide", initial_sidebar_state="expanded")
 
-# Inicialização do banco de dados e tabelas novas
+# Inicialização da base de dados e tabelas novas
 criar_tabelas()
 
 st.title("B&D Finance")
@@ -90,18 +89,13 @@ else:
     df_receitas_filtrado = df_rec_ano[df_rec_ano['Mes_Num'] == mes_codigo]
 
 if pessoa_selecionada != "Todos":
-    # Aqui os filtros de Quem Pagou e Fonte também foram ajustados para o padrão do banco
     df_despesas_filtrado = df_despesas_filtrado[df_despesas_filtrado['quem_pagou'] == pessoa_selecionada]
     df_receitas_filtrado = df_receitas_filtrado[df_receitas_filtrado['fonte'] == pessoa_selecionada]
-
-# Chamada do módulo de segurança
-backup.exibir_sidebar()
 
 # Direcionamento para as telas correspondentes
 if aba == "Dashboard":
     dashboard.exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual)
 elif aba == "Receitas/Despesas":
-    # Passamos a lista de categorias e a lista de pessoas ativas dinâmicas do banco
     lancamentos.exibir(lista_categorias_ativas, lista_pessoas_ativas)
 elif aba == "Parcelamentos":
     parcelamentos.exibir(lista_categorias_ativas, lista_pessoas_ativas)
