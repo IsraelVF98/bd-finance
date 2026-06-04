@@ -16,6 +16,18 @@ from telas import dashboard, lancamentos, parcelamentos, categorias, pessoas
 # Configuração do Layout Premium
 st.set_page_config(page_title="B&D Finance", layout="wide", initial_sidebar_state="expanded")
 
+st.markdown("""
+    <style>
+        /* Reduz o espaço em branco no topo da página principal */
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 0rem !important;
+        }
+        /* Oculta o menu padrão do Streamlit e o header (opcional, deixa mais limpo) */
+        header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
 # Inicialização das variáveis de estado (Session State)
 if "mes_selecionado" not in st.session_state:
     st.session_state.mes_selecionado = "Ano Inteiro"
@@ -37,18 +49,24 @@ criar_tabelas()
 # =========================================================
 
 if not st.session_state.logado:
-    # Centraliza o formulário de login na tela de forma elegante
-    col_login1, col_login2, col_login3 = st.columns([1, 1.2, 1])
     
-    with col_login2:
-        st.write("")
-        st.write("")
-        # Exibe a logo centralizada também na tela de login
-        col_img1, col_img2, col_img3 = st.columns([0.5, 2, 0.5])
-        with col_img2:
-            st.image("assets/logo.png", use_container_width=True)
-            
-        st.markdown("<h3 style='text-align: center;'>Bem-vindo ao B&D Finance</h3>", unsafe_allow_html=True)
+    # Adicionamos um pequeno respiro no topo para não ficar colado demais
+    st.write("") 
+    
+    # Criamos 2 colunas proporcionais (50% esquerda, 50% direita) com um espaço grande entre elas
+    # Dica: se o seu Streamlit estiver atualizado, você pode adicionar: vertical_alignment="center"
+    col_esq, col_dir = st.columns([0.6, 1.4], gap="large")
+    
+    # --- COLUNA DA ESQUERDA (IMAGEM) ---
+    with col_esq:
+        # Colocamos um pequeno espaçamento para a imagem descer e ficar alinhada com o formulário
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        # O use_container_width=True garante que ela fique grande, preenchendo o espaço da coluna
+        st.image("assets/logo.png", use_container_width=True)
+        
+    # --- COLUNA DA DIREITA (FORMULÁRIOS) ---
+    with col_dir:
+        st.markdown("<h2 style='text-align: left;'>Bem-vindo ao B&D Finance</h2>", unsafe_allow_html=True)
         
         # Cria abas internas para alternar entre Fazer Login e Criar Conta
         aba_auth = st.tabs(["🔒 Entrar no Sistema", "📝 Criar Nova Conta"])
