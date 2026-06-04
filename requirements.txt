@@ -6,3 +6,4 @@ openpyxl
 sqlalchemy
 psycopg2-binary
 streamlit-antd-components
+bcrypt

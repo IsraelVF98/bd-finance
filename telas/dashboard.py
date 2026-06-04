@@ -1,8 +1,9 @@
+# telas/dashboard.py
 import streamlit as st
 import plotly.express as px
 import pandas as pd
 
-def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False):
+def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False, usuario_id=None):
     # Garantir que lidamos corretamente com maiúsculas/minúsculas vindas do banco de dados
     if 'valor' in df_receitas_filtrado.columns:
         df_receitas_filtrado = df_receitas_filtrado.rename(columns={'valor': 'Valor', 'fonte': 'Fonte', 'descricao': 'Descricao', 'mes_ano': 'Mes_Ano'})
