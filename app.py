@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -12,20 +11,52 @@ from telas import dashboard, lancamentos, parcelamentos, categorias, pessoas
 # Configuração do Layout Premium
 st.set_page_config(page_title="B&D Finance", layout="wide", initial_sidebar_state="expanded")
 
+# Inicialização do estado do mês selecionado para o calendário em grade (Evita bugs ao mudar de página)
+if "mes_selecionado" not in st.session_state:
+    st.session_state.mes_selecionado = "Ano Inteiro"
+
 # Inicialização da base de dados e tabelas novas
 criar_tabelas()
 
-st.title("B&D Finance")
+st.markdown(
+    """
+    <style>
+        [data-testid="stSidebarUserContent"] {
+            padding-top: 0rem !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+            gap: 0rem !important;
+        }
+        [data-testid="stSidebar"] hr {
+            margin-top: 0rem !important;
+            margin-bottom: 0rem !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-# Menu de navegação lateral expandido
+# Mantém a proporção de colunas que gostaste
+col_logo1, col_logo2, col_logo3 = st.sidebar.columns([0.5, 3, 0.5])
+
+with col_logo2:
+    st.image("assets/logo.png", use_container_width=True)
+
+st.sidebar.markdown("---")
+
+# Menu de navegação lateral expandido (Atualizado para usar 'tela' em vez de 'aba')
 st.sidebar.header("Menu")
-aba = st.sidebar.radio("Ir para:", [
+tela = st.sidebar.radio("Ir para:", [
     "Dashboard", 
     "Receitas/Despesas", 
     "Parcelamentos", 
     "Gerenciar Categorias",
     "Gerenciar Pessoas"
 ])
+
+# Título dinâmico baseado na tela atual
+st.title(f"{tela}")
+st.markdown("<br>", unsafe_allow_html=True) # Dá um espacinho elegante abaixo do título
 
 # Carga de dados dinâmicos do banco
 lista_categorias_ativas = obter_categorias()
@@ -69,9 +100,49 @@ meses_traducao = {
 }
 meses_numeros = sorted(list(set(df_desp_ano['Mes_Num'].dropna().unique()).union(set(df_rec_ano['Mes_Num'].dropna().unique()))))
 
-# 2º Filtro: Mês condicional (Cascata)
-opcoes_meses = ["Ano Inteiro"] + [meses_traducao[m] for m in meses_numeros if m in meses_traducao]
-mes_selecionado_nome = st.sidebar.selectbox("Selecione o Mês:", opcoes_meses)
+
+# 2º Filtro: CALENDÁRIO EM GRADE
+st.sidebar.write("Selecione o Mês:")
+
+# Botão principal de Ano Inteiro com destaque visual dinâmico
+is_ano_inteiro = (st.session_state.mes_selecionado == "Ano Inteiro")
+if st.sidebar.button("Ano Inteiro", use_container_width=True, type="primary" if is_ano_inteiro else "secondary"):
+    st.session_state.mes_selecionado = "Ano Inteiro"
+    st.rerun()
+
+# Mapeamento com abreviações para os botões caberem perfeitamente na barra lateral
+meses_grid = [
+    ("01", "Jan", "Janeiro"), ("02", "Fev", "Fevereiro"), ("03", "Mar", "Março"), ("04", "Abr", "Abril"),
+    ("05", "Mai", "Maio"), ("06", "Jun", "Junho"), ("07", "Jul", "Julho"), ("08", "Ago", "Agosto"),
+    ("09", "Set", "Setembro"), ("10", "Out", "Outubro"), ("11", "Nov", "Novembro"), ("12", "Dez", "Dezembro")
+]
+
+# Montagem da estrutura de Grade 3x4 integrada na Sidebar
+with st.sidebar:
+    for r in range(3):
+        cols = st.columns(4)
+        for c in range(4):
+            idx = r * 4 + c
+            mes_codigo, mes_nome_curto, mes_nome_completo = meses_grid[idx]
+            
+            # Regras dinâmicas do botão
+            disponivel = mes_codigo in meses_numeros
+            is_active = (st.session_state.mes_selecionado == mes_nome_completo)
+            
+            with cols[c]:
+                if st.button(
+                    mes_nome_curto, 
+                    key=f"cal_{ano_selecionado}_{mes_codigo}", 
+                    use_container_width=True,
+                    type="primary" if is_active else "secondary",
+                    disabled=not disponivel # Desativa meses sem dados cadastrados no ano
+                ):
+                    st.session_state.mes_selecionado = mes_nome_completo
+                    st.rerun()
+
+# Atribuição da variável para manter a compatibilidade perfeita com os teus filtros originais
+mes_selecionado_nome = st.session_state.mes_selecionado
+
 
 # 3º Filtro: Filtro de Pessoa Alimentado Dinamicamente do banco de dados
 opcoes_filtro_pessoas = ["Todos"] + lista_pessoas_ativas
@@ -92,14 +163,17 @@ if pessoa_selecionada != "Todos":
     df_despesas_filtrado = df_despesas_filtrado[df_despesas_filtrado['quem_pagou'] == pessoa_selecionada]
     df_receitas_filtrado = df_receitas_filtrado[df_receitas_filtrado['fonte'] == pessoa_selecionada]
 
-# Direcionamento para as telas correspondentes
-if aba == "Dashboard":
+
+# =========================================================
+# 🧭 DIRECIONAMENTO SEGURO DAS TELAS (AGORA NO LUGAR CERTO!)
+# =========================================================
+if tela == "Dashboard":
     dashboard.exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual)
-elif aba == "Receitas/Despesas":
+elif tela == "Receitas/Despesas":
     lancamentos.exibir(lista_categorias_ativas, lista_pessoas_ativas)
-elif aba == "Parcelamentos":
+elif tela == "Parcelamentos":
     parcelamentos.exibir(lista_categorias_ativas, lista_pessoas_ativas)
-elif aba == "Gerenciar Categorias":
+elif tela == "Gerenciar Categorias":
     categorias.exibir(lista_categorias_ativas)
-elif aba == "Gerenciar Pessoas":
+elif tela == "Gerenciar Pessoas":
     pessoas.exibir()

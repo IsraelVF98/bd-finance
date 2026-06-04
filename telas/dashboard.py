@@ -1,4 +1,3 @@
-# telas/dashboard.py
 import streamlit as st
 import plotly.express as px
 import pandas as pd
@@ -15,39 +14,74 @@ def exibir(df_despesas_filtrado, df_receitas_filtrado, visao_anual=False):
     desp_total = df_despesas_filtrado['Valor'].sum() if not df_despesas_filtrado.empty else 0.0
     saldo_total = rec_total - desp_total
     
-# Cards de KPI superiores (Opção 2: Valor no Delta)
-    texto_delta = f"R$ {saldo_total:,.2f}" if saldo_total >= 0 else f"-R$ {abs(saldo_total):,.2f}"
+    # Espaçamento estético inicial menor
+    st.markdown("<div style='margin-top: -10px;'></div>", unsafe_allow_html=True)
 
-    # Cards de KPI superiores (Visual Premium com Fontes Coloridas)
-    col1, col2, col3 = st.columns(3)
+    # =========================================================
+    # 🌟 CARDS EXECUTIVE SLIM COR DINÂMICA
+    # =========================================================
+    col_saldo, col_receita, col_despesa = st.columns(3)
     
-    with col1:
-        st.markdown(f"""
-            <div style="padding: 5px 0px;">
-                <p style="margin:0; font-size:14px; color:#a3a8b4; font-weight:500;">Receitas Totais</p>
-                <p style="margin:0; font-size:30px; font-weight:700; color:#2ecc71;">R$ {rec_total:,.2f}</p>
+    with col_saldo:
+        if saldo_total >= 0:
+            cor_borda = "#2ecc71"
+            bg_pill = "rgba(46, 204, 113, 0.12)"
+            texto_pill = "↑ Positivo"
+        else:
+            cor_borda = "#e74c3c"
+            bg_pill = "rgba(231, 76, 60, 0.12)"
+            texto_pill = "↓ Negativo"
+            
+        st.markdown(
+            f"""
+            <div style="background-color: #161922; padding: 14px 18px; border-radius: 10px; border-left: 5px solid {cor_borda}; box-shadow: 0 4px 8px rgba(0,0,0,0.15); min-height: 110px;">
+                <p style="margin: 0 0 4px 0; font-size: 13px; color: #a3a8b4; font-weight: 500; font-family: sans-serif;">Saldo Líquido</p>
+                <h2 style="color: {cor_borda}; margin: 0 0 8px 0; font-size: 28px; font-weight: 700; font-family: sans-serif;">
+                    R$ {saldo_total:,.2f}
+                </h2>
+                <span style="background-color: {bg_pill}; color: {cor_borda}; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block; font-family: sans-serif;">
+                    {texto_pill}
+                </span>
             </div>
-        """, unsafe_allow_html=True)
+            """, 
+            unsafe_allow_html=True
+        )
         
-    with col2:
-        st.markdown(f"""
-            <div style="padding: 5px 0px;">
-                <p style="margin:0; font-size:14px; color:#a3a8b4; font-weight:500;">Despesas Totais</p>
-                <p style="margin:0; font-size:30px; font-weight:700; color:#e74c3c;">R$ {desp_total:,.2f}</p>
+    with col_receita:
+        st.markdown(
+            f"""
+            <div style="background-color: #161922; padding: 14px 18px; border-radius: 10px; border-left: 5px solid #2ecc71; box-shadow: 0 4px 8px rgba(0,0,0,0.15); min-height: 110px;">
+                <p style="margin: 0 0 4px 0; font-size: 13px; color: #a3a8b4; font-weight: 500; font-family: sans-serif;">Total Receitas</p>
+                <h2 style="color: #2ecc71; margin: 0 0 10px 0; font-size: 28px; font-weight: 700; font-family: sans-serif;">
+                    R$ {rec_total:,.2f}
+                </h2>
+                <p style="margin: 0; color: #6a7180; font-size: 12px; font-family: sans-serif;">Entradas registradas</p>
             </div>
-        """, unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True
+        )
         
-    with col3:
-        # Define a cor dinâmica do texto do Saldo
-        cor_saldo = "#2ecc71" if saldo_total >= 0 else "#e74c3c"
-        st.markdown(f"""
-            <div style="padding: 5px 0px;">
-                <p style="margin:0; font-size:14px; color:#a3a8b4; font-weight:500;">Saldo Líquido</p>
-                <p style="margin:0; font-size:30px; font-weight:700; color:{cor_saldo};">R$ {saldo_total:,.2f}</p>
+    with col_despesa:
+        st.markdown(
+            f"""
+            <div style="background-color: #161922; padding: 14px 18px; border-radius: 10px; border-left: 5px solid #e74c3c; box-shadow: 0 4px 8px rgba(0,0,0,0.15); min-height: 110px;">
+                <p style="margin: 0 0 4px 0; font-size: 13px; color: #a3a8b4; font-weight: 500; font-family: sans-serif;">Total Despesas</p>
+                <h2 style="color: #e74c3c; margin: 0 0 10px 0; font-size: 28px; font-weight: 700; font-family: sans-serif;">
+                    R$ {desp_total:,.2f}
+                </h2>
+                <p style="margin: 0; color: #6a7180; font-size: 12px; font-family: sans-serif;">Saídas registradas</p>
             </div>
-        """, unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True
+        )
         
-    st.markdown("---")
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # =========================================================
+    # SE VOCÊ TIVER GRÁFICOS ABAIXO (Plotly, etc), RECOLE-OS AQUI:
+    # =========================================================
+
+
     # Gráfico de Linha de Evolução Mensal (Visão Anual)
     if visao_anual:
         st.subheader("Evolução Financeira Mensal")
