@@ -171,7 +171,7 @@ def salvar_parcelamento(descricao, categoria, quem_pagou, mes_inicial, qtd_parce
             data_atual += relativedelta(months=1)
 
 def obter_parcelamentos_ativos():
-    """Retorna o resumo dos contratos de parcelamento ativos."""
+    """Retorna o resumo dos contratos de parcelamento ativos corrigido para PostgreSQL."""
     query = """
         SELECT id_parcelamento as "ID Contrato", 
                categoria as "Categoria", 
@@ -180,7 +180,7 @@ def obter_parcelamentos_ativos():
                SUM(valor) as "Valor Total"
         FROM despesas 
         WHERE id_parcelamento IS NOT NULL 
-        GROUP BY id_parcelamento
+        GROUP BY id_parcelamento, categoria, quem_pagou
     """
     return pd.read_sql(query, engine)
 
