@@ -55,6 +55,35 @@ if "cookie_manager" not in st.session_state:
 
 cookie_manager = st.session_state.cookie_manager
 
+@st.cache_data(ttl=600) # Guarda os dados na memória por 10 minutos (600 segundos)
+def carregar_despesas_com_cache(user_id):
+    df = obter_todas_despesas(user_id)
+    if not df.empty:
+        df['Ano'] = df['mes_ano'].str.split('/').str[1]
+        df['Mes_Num'] = df['mes_ano'].str.split('/').str[0]
+    else:
+        df['Ano'] = pd.Series(dtype='str')
+        df['Mes_Num'] = pd.Series(dtype='str')
+    return df
+
+@st.cache_data(ttl=600)
+def carregar_receitas_com_cache(user_id):
+    df = obter_receitas_raw(user_id)
+    if not df.empty:
+        df['Ano'] = df['mes_ano'].str.split('/').str[1]
+        df['Mes_Num'] = df['mes_ano'].str.split('/').str[0]
+    else:
+        df['Ano'] = pd.Series(dtype='str')
+        df['Mes_Num'] = pd.Series(dtype='str')
+    return df
+
+# Para listas simples, também podemos cachear para poupar o banco
+@st.cache_data(ttl=600)
+def carregar_filtros_com_cache(user_id):
+    categorias_ativas = obter_categorias(user_id)
+    pessoas_ativas = obter_pessoas(user_id)
+    return categorias_ativas, pessoas_ativas
+
 
 # =========================================================
 # 🔄 LÓGICA DE LOGIN AUTOMÁTICO (MANTER CONECTADO)
@@ -185,27 +214,16 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 # =========================================================
-# 📊 CARGA E FILTRAGEM DE DADOS (PASSANDO O USER ID ATIVO)
+# 📊 CARGA E FILTRAGEM DE DADOS (AGORA COM CACHE VIA MEMÓRIA)
 # =========================================================
-lista_categorias_ativas = obter_categorias(user_id_ativo)
-lista_pessoas_ativas = obter_pessoas(user_id_ativo)
-df_despesas_all = obter_todas_despesas(user_id_ativo)
-df_receitas_all = obter_receitas_raw(user_id_ativo)
+# Busca as listas simples do banco (ou do cache se já foram chamadas)
+lista_categorias_ativas, lista_pessoas_ativas = carregar_filtros_com_cache(user_id_ativo)
 
-if not df_despesas_all.empty:
-    df_despesas_all['Ano'] = df_despesas_all['mes_ano'].str.split('/').str[1]
-    df_despesas_all['Mes_Num'] = df_despesas_all['mes_ano'].str.split('/').str[0]
-else:
-    df_despesas_all['Ano'] = pd.Series(dtype='str')
-    df_despesas_all['Mes_Num'] = pd.Series(dtype='str')
+# Busca os DataFrames já devidamente tratados e splitados de dentro do cache
+df_despesas_all = carregar_despesas_com_cache(user_id_ativo)
+df_receitas_all = carregar_receitas_com_cache(user_id_ativo)
 
-if not df_receitas_all.empty:
-    df_receitas_all['Ano'] = df_receitas_all['mes_ano'].str.split('/').str[1]
-    df_receitas_all['Mes_Num'] = df_receitas_all['mes_ano'].str.split('/').str[0]
-else:
-    df_receitas_all['Ano'] = pd.Series(dtype='str')
-    df_receitas_all['Mes_Num'] = pd.Series(dtype='str')
-
+# Identifica os anos disponíveis na base calculando direto das colunas cacheadas
 anos_disponiveis = sorted(list(set(df_despesas_all['Ano'].dropna().unique()).union(set(df_receitas_all['Ano'].dropna().unique()))), reverse=True)
 if not anos_disponiveis:
     anos_disponiveis = [datetime.now().strftime("%Y")]
